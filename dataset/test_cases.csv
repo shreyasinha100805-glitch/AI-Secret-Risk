@@ -1,0 +1,11 @@
+code,label,type
+"API_KEY = 'sk_live_abc123456789'",REAL_SECRET,API_KEY
+"password = 'MyRealPassword@123'",REAL_SECRET,PASSWORD
+"token = 'x7F9kP2mL8Q4wZ6rT1'",REAL_SECRET,TOKEN
+"API_KEY = 'YOUR_API_KEY_HERE'",PLACEHOLDER,API_KEY
+"password = 'password123'",PLACEHOLDER,PASSWORD
+"token = '<YOUR_TOKEN>'",PLACEHOLDER,TOKEN
+"message = 'hello world'",NOT_SECRET,OTHER
+"username = 'admin'",NOT_SECRET,OTHER
+"session_id = 'abc123'",NOT_SECRET,OTHER
+"api_key = os.getenv('API_KEY')",NOT_SECRET,OTHER
