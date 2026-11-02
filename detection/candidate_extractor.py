@@ -11,19 +11,42 @@ from detection.context_detector import classify_context
 PATTERNS = {
 
     "api_key": re.compile(
-        r"\b(?:API_KEY|api_key|apikey)\s*=\s*['\"]([^'\"]+)['\"]",
+        r"\b(?:API_KEY|api_key|apikey|api[_-]?key)\s*=\s*['\"]([^'\"]+)['\"]",
         re.IGNORECASE
     ),
 
     "password": re.compile(
-        r"\b(?:PASSWORD|password|passwd|pwd)\s*=\s*['\"]([^'\"]+)['\"]",
+        r"\b(?:PASSWORD|password|passwd|pwd|"
+        r"database_password|db_password|database_pass|db_pass)\s*="
+        r"\s*['\"]([^'\"]+)['\"]",
         re.IGNORECASE
     ),
 
     "token": re.compile(
-        r"\b(?:TOKEN|token|access_token|auth_token)\s*=\s*['\"]([^'\"]+)['\"]",
+        r"\b(?:TOKEN|token|access_token|auth_token|"
+        r"refresh_token|bearer_token|id_token)\s*="
+        r"\s*['\"]([^'\"]+)['\"]",
         re.IGNORECASE
-    )
+    ),
+
+    "secret": re.compile(
+        r"\b(?:SECRET|secret|secret_key|"
+        r"client_secret|app_secret)\s*="
+        r"\s*['\"]([^'\"]+)['\"]",
+        re.IGNORECASE
+    ),
+
+    "credential": re.compile(
+        r"\b(?:CREDENTIAL|credential|credentials)\s*="
+        r"\s*['\"]([^'\"]+)['\"]",
+        re.IGNORECASE
+    ),
+
+    "authorization": re.compile(
+        r"\b(?:AUTHORIZATION|authorization)\s*="
+        r"\s*['\"]([^'\"]+)['\"]",
+        re.IGNORECASE
+    ),
 }
 
 
@@ -38,7 +61,7 @@ def extract_candidates(code):
     if not code:
         return candidates
 
-    # Keep track of values already detected by regex
+    # Keep track of values already detected
     detected_values = set()
 
     # -----------------------------------------------------
@@ -54,7 +77,7 @@ def extract_candidates(code):
             if not value:
                 continue
 
-            # Avoid duplicate regex results
+            # Avoid duplicate results
             if value in detected_values:
                 continue
 
@@ -69,7 +92,7 @@ def extract_candidates(code):
                 "end": match.end(1)
             }
 
-            # Context
+            # Extract surrounding context
             context = code[
                 max(0, match.start() - 300):
                 min(len(code), match.end() + 300)
@@ -98,11 +121,7 @@ def extract_candidates(code):
         if not value:
             continue
 
-        # -----------------------------------------------
-        # IMPORTANT:
-        # Do not add a value already found by regex.
-        # -----------------------------------------------
-
+        # Do not duplicate regex candidates
         if value in detected_values:
             continue
 
@@ -123,6 +142,7 @@ def extract_candidates(code):
             "end": match.end(1)
         }
 
+        # Extract surrounding context
         context = code[
             max(0, match.start() - 300):
             min(len(code), match.end() + 300)

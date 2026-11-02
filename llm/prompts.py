@@ -1,115 +1,129 @@
 def create_secret_classification_prompt(
     candidate,
-    detected_type,
-    context
+    context,
+    detected_type=None
 ):
     """
-    Create the prompt used by the LLM for secret classification.
+    Create a classification prompt for the LLM.
+
+    Supports both:
+        create_secret_classification_prompt(candidate, context)
+    and:
+        create_secret_classification_prompt(candidate, context, detected_type)
     """
 
-    return f"""
-You are an expert cybersecurity researcher specializing
-in source-code secret detection.
+    # Candidate may be a dictionary or a plain string
+    if isinstance(candidate, dict):
 
-Analyze ONE suspicious candidate from source code.
+        value = candidate.get("value", "")
 
-==================================================
-CANDIDATE
-==================================================
+        if detected_type is None:
+            detected_type = candidate.get(
+                "type",
+                "unknown"
+            )
 
-{candidate}
+    else:
 
-==================================================
-DETECTOR TYPE
-==================================================
+        value = str(candidate)
 
+    if detected_type is None:
+        detected_type = "unknown"
+
+    prompt = f"""
+You are a source-code security classifier.
+
+Your task is to classify ONLY the candidate value.
+
+CANDIDATE:
+{value}
+
+DETECTED TYPE:
 {detected_type}
 
-==================================================
-SOURCE CODE CONTEXT
-==================================================
-
+SOURCE CODE CONTEXT:
 {context}
-
-==================================================
-TASK
-==================================================
-
-Determine whether the candidate is a real credential
-or a false positive.
-
-REAL_SECRET means:
-- A credential intended for authentication or authorization.
-- An API key used by an application.
-- A password used for authentication.
-- An access token used for authentication.
-- A private cryptographic key.
-- Another value that clearly functions as a secret.
-
-FALSE_POSITIVE means:
-- Example value.
-- Dummy value.
-- Test credential.
-- Mock credential.
-- Documentation placeholder.
-- Tutorial example.
-- Random identifier that is not used as a credential.
-- Public/non-sensitive configuration value.
 
 IMPORTANT RULES:
 
-1. A random-looking string alone does NOT prove that it is
-   a real secret.
+1. Focus ONLY on the candidate.
 
-2. Use the surrounding source-code context.
+2. Use the surrounding source-code context to understand
+   what the candidate represents.
 
-3. If the code clearly indicates that the value is only for
-   testing, documentation, demonstration, or mocking,
-   classify it as FALSE_POSITIVE.
+3. Do NOT assume that every random-looking string is a secret.
 
-4. Do not assume a value is a secret simply because the
-   detector identified it.
+4. A demonstration value, example value, sample value,
+   test value, dummy value, or placeholder is NOT a real secret.
 
-5. Choose only ONE secret type.
+5. If the context clearly indicates that the value is being
+   used for testing, demonstration, documentation, examples,
+   samples, or placeholders, classify it as PLACEHOLDER.
 
-6. Confidence must be between 0.0 and 1.0.
+6. If the candidate is obtained from an environment variable,
+   such as:
+       os.getenv(...)
+       os.environ[...]
+   classify it as NOT_SECRET because the actual secret is not
+   hardcoded in the source code.
 
-7. Do not invent information that is not present in the
-   candidate or source-code context.
+7. A hardcoded API key, password, authentication token,
+   database credential, private key, or other credential
+   should be classified as REAL_SECRET when the context
+   supports that interpretation.
 
-==================================================
-ALLOWED CLASSIFICATIONS
-==================================================
+8. Do NOT classify a candidate as REAL_SECRET only because
+   it looks random or has high entropy.
+
+9. Ordinary identifiers, IDs, messages, usernames, names,
+   test data, and normal strings are NOT_SECRET.
+
+10. Never reproduce the candidate value in the explanation.
+
+CLASSIFICATION OPTIONS:
 
 REAL_SECRET
-FALSE_POSITIVE
+PLACEHOLDER
+NOT_SECRET
+UNKNOWN
 
-==================================================
-ALLOWED TYPES
-==================================================
+SECRET TYPES:
 
 API_KEY
 PASSWORD
 TOKEN
 PRIVATE_KEY
+DATABASE_CREDENTIAL
+GENERIC_SECRET
 OTHER
-NONE
 
-==================================================
-OUTPUT FORMAT
-==================================================
-
-Return EXACTLY four lines:
+Return EXACTLY this format:
 
 CLASSIFICATION: REAL_SECRET
 TYPE: API_KEY
-CONFIDENCE: 0.85
-REASON: The candidate is used as an authentication credential.
+CONFIDENCE: 0.00
+REASON: Short explanation.
 
-Replace the example values with your actual analysis.
+OR:
 
-Do not add headings.
-Do not use Markdown.
-Do not provide multiple classifications.
-Do not provide multiple types.
+CLASSIFICATION: PLACEHOLDER
+TYPE: OTHER
+CONFIDENCE: 0.00
+REASON: Short explanation.
+
+OR:
+
+CLASSIFICATION: NOT_SECRET
+TYPE: OTHER
+CONFIDENCE: 0.00
+REASON: Short explanation.
+
+OR:
+
+CLASSIFICATION: UNKNOWN
+TYPE: OTHER
+CONFIDENCE: 0.00
+REASON: Short explanation.
 """
+
+    return prompt
