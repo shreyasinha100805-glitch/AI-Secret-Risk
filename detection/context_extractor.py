@@ -1,3 +1,66 @@
+
+COMMENT_PREFIXES = ("#", "//", "/*", "*", "--")
+
+
+def extract_candidate_context(code, start, end):
+    """
+    Extract the candidate's assignment line and its
+    immediately preceding comments.
+
+    Prevents comments belonging to nearby assignments
+    from affecting candidate classification.
+    """
+
+    if not code:
+        return ""
+
+    start = max(0, min(start, len(code)))
+    end = max(start, min(end, len(code)))
+
+    lines = code.splitlines()
+
+    if not lines:
+        return ""
+
+    candidate_line = code[:start].count("\n")
+
+    if candidate_line >= len(lines):
+        candidate_line = len(lines) - 1
+
+    preceding_comments = []
+
+    index = candidate_line - 1
+    blank_lines_seen = 0
+
+    while index >= 0:
+
+        current_line = lines[index]
+        stripped = current_line.strip()
+
+        if not stripped:
+
+            if blank_lines_seen >= 1:
+                break
+
+            blank_lines_seen += 1
+            index -= 1
+            continue
+
+        if stripped.startswith(COMMENT_PREFIXES):
+
+            preceding_comments.insert(0, current_line)
+
+            blank_lines_seen = 0
+            index -= 1
+            continue
+
+        break
+
+    return "\n".join(
+        preceding_comments + [lines[candidate_line]]
+    )
+
+
 def extract_line_context(
     code,
     start,
@@ -5,39 +68,31 @@ def extract_line_context(
     lines_before=4,
     lines_after=4
 ):
-    """
-    Extract source-code context around a detected candidate.
-
-    start/end are character positions in the original source code.
-    """
+    """Extract wider context when required."""
 
     if not code:
         return ""
 
-    # Safety
     start = max(0, start)
     end = min(len(code), end)
 
-    # Find the line containing the candidate
-    line_start = code.rfind("\n", 0, start) + 1
-
-    line_end = code.find("\n", end)
-
-    if line_end == -1:
-        line_end = len(code)
-
-    # Split source into lines
     lines = code.splitlines()
 
-    # Determine candidate line number
-    candidate_line = code[:line_start].count("\n")
+    if not lines:
+        return ""
 
-    first_line = max(0, candidate_line - lines_before)
+    candidate_line = code[:start].count("\n")
+
+    first_line = max(
+        0,
+        candidate_line - lines_before
+    )
+
     last_line = min(
         len(lines),
         candidate_line + lines_after + 1
     )
 
-    context_lines = lines[first_line:last_line]
-
-    return "\n".join(context_lines)
+    return "\n".join(
+        lines[first_line:last_line]
+    )

@@ -1,12 +1,14 @@
+
 import re
 
 from detection.entropy_detector import calculate_entropy
 from detection.context_detector import classify_context
+from detection.context_extractor import extract_candidate_context
 
 
-# ---------------------------------------------------------
-# Regex patterns
-# ---------------------------------------------------------
+# =========================================================
+# REGEX PATTERNS
+# =========================================================
 
 PATTERNS = {
 
@@ -50,9 +52,9 @@ PATTERNS = {
 }
 
 
-# ---------------------------------------------------------
-# Extract candidates
-# ---------------------------------------------------------
+# =========================================================
+# EXTRACT CANDIDATES
+# =========================================================
 
 def extract_candidates(code):
 
@@ -61,11 +63,10 @@ def extract_candidates(code):
     if not code:
         return candidates
 
-    # Keep track of values already detected
     detected_values = set()
 
     # -----------------------------------------------------
-    # STEP 1: Regex detection
+    # STEP 1: REGEX DETECTION
     # -----------------------------------------------------
 
     for detected_type, pattern in PATTERNS.items():
@@ -77,7 +78,7 @@ def extract_candidates(code):
             if not value:
                 continue
 
-            # Avoid duplicate results
+            # Avoid duplicate candidates
             if value in detected_values:
                 continue
 
@@ -92,12 +93,14 @@ def extract_candidates(code):
                 "end": match.end(1)
             }
 
-            # Extract surrounding context
-            context = code[
-                max(0, match.start() - 300):
-                min(len(code), match.end() + 300)
-            ]
+            # Extract candidate-specific context
+            context = extract_candidate_context(
+                code,
+                match.start(1),
+                match.end(1)
+            )
 
+            # Classify the candidate using context
             candidate["context_result"] = classify_context(
                 candidate,
                 context
@@ -106,10 +109,9 @@ def extract_candidates(code):
             candidates.append(candidate)
 
     # -----------------------------------------------------
-    # STEP 2: Entropy detection
+    # STEP 2: ENTROPY DETECTION
     # -----------------------------------------------------
 
-    # Extract quoted strings
     string_pattern = re.compile(
         r"""['"]([^'"]{8,})['"]"""
     )
@@ -125,6 +127,7 @@ def extract_candidates(code):
         if value in detected_values:
             continue
 
+        # Calculate Shannon entropy
         entropy = calculate_entropy(value)
 
         # Entropy threshold
@@ -142,12 +145,14 @@ def extract_candidates(code):
             "end": match.end(1)
         }
 
-        # Extract surrounding context
-        context = code[
-            max(0, match.start() - 300):
-            min(len(code), match.end() + 300)
-        ]
+        # Extract candidate-specific context
+        context = extract_candidate_context(
+            code,
+            match.start(1),
+            match.end(1)
+        )
 
+        # Classify using context detector
         candidate["context_result"] = classify_context(
             candidate,
             context
@@ -155,4 +160,39 @@ def extract_candidates(code):
 
         candidates.append(candidate)
 
+    # IMPORTANT: Return is inside the function,
+    # outside both detection loops.
+
     return candidates
+
+
+# =========================================================
+# TEST THE CANDIDATE EXTRACTOR
+# =========================================================
+
+if __name__ == "__main__":
+
+    sample_code = """
+api_key = "A8fK92LmX71QpR5Z"
+
+# Placeholder example
+API_KEY = "YOUR_API_KEY_HERE"
+
+message = "Hello World"
+"""
+
+    results = extract_candidates(sample_code)
+
+    print("=" * 60)
+    print("CANDIDATE EXTRACTION TEST")
+    print("=" * 60)
+
+    for candidate in results:
+
+        print("\nDetected candidate:")
+        print("Type:", candidate["type"])
+        print("Method:", candidate["method"])
+        print(
+            "Classification:",
+            candidate["context_result"]["classification"]
+        )
